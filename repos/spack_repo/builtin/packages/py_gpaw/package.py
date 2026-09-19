@@ -2,23 +2,25 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
+from spack_repo.builtin.build_systems.cuda import CudaPackage
 from spack_repo.builtin.build_systems.python import PythonPackage
 
 from spack.package import *
 
 
-class PyGpaw(PythonPackage):
+class PyGpaw(PythonPackage, CudaPackage):
     """GPAW is a density-functional theory (DFT) Python code based on the
     projector-augmented wave (PAW) method and the atomic simulation environment
     (ASE)."""
 
     homepage = "https://gpaw.readthedocs.io/index.html"
-    pypi = "gpaw/gpaw-25.7.0.tar.gz"
+    pypi = "gpaw/gpaw-26.7.0.tar.gz"
 
     maintainers("alikhamze", "Chronum94")
 
     license("GPL-3.0-or-later", checked_by="alikhamze")
 
+    version("26.7.0", sha256="1509af00cfcd032bbbce197a5b3e37edb82bf458db5e200f6a105ec74efbca15")
     version("25.7.0", sha256="93ac829bba36be74eab0d7deef5eb798613c04edbce196837208d206cf39c431")
     version("25.1.0", sha256="80236e779784df3317e7da395dc59ea403bc0213bb3a68d02c17957162e972ea")
     version("24.6.0", sha256="fb48ef0db48c0e321ce5967126a47900bba20c7efb420d6e7b5459983bd8f6f6")
@@ -29,11 +31,16 @@ class PyGpaw(PythonPackage):
     variant("scalapack", default=True, description="Build with ScaLAPACK support")
     variant("fftw", default=True, description="Build with FFTW support")
     variant("libvdwxc", default=True, description="Build with libvdwxc support")
-    variant("elpa", default=True, description="Build with ELPA support")
+    variant("elpa", default=False, description="Build with ELPA support")
     variant("openmp", default=True, description="Build with OpenMP support")
+    variant("cuda", default=False, when="@23.6:", description="Build with CUDA GPU support")
 
     # Build dependencies
-    depends_on("c", type="build")
+    with when("@:25.7.0"):
+        depends_on("c", type="build")
+    with when("@26.7.0:"):
+        # C++ is the default build type as of 26.7.0 (C build is legacy);
+        depends_on("cxx", type="build")
     depends_on("py-setuptools", type="build")
 
     # Version-agnostic required dependencies
@@ -41,7 +48,19 @@ class PyGpaw(PythonPackage):
     depends_on("lapack")
 
     # Version-specific required dependencies
-    with when("@25.7.0:"):
+    with when("@26.7.0:"):
+        depends_on("libxc")
+        # C++ is the default build type as of 26.7.0 (C build is legacy);
+        # the C++ path also pulls in pybind11 headers.
+        depends_on("py-setuptools@77.0.3:", type="build")
+        depends_on("py-pybind11@2.6.2:", type="build")
+        depends_on("python@3.10:", type=("build", "run"))
+        depends_on("py-ase@3.29.0:", type=("build", "run"))
+        depends_on("py-numpy@1.20.0:", type=("build", "run"))
+        depends_on("py-scipy@1.6.0:", type=("build", "run"))
+        depends_on("py-gpaw-data", type=("run"))
+
+    with when("@25.7.0"):
         depends_on("libxc")
         depends_on("python@3.9:", type=("build", "run"))
         depends_on("py-ase@3.25.0:", type=("build", "run"))
@@ -70,11 +89,16 @@ class PyGpaw(PythonPackage):
         depends_on("py-numpy@1.17:1.26.4", type=("build", "run"))
         depends_on("py-scipy@1.6.0:", type=("build", "run"))
 
-    # Variant dependencies
+    # Variant dependencies and conflicts
     depends_on("mpi", when="+mpi", type=("build", "link", "run"))
     depends_on("fftw-api", when="+fftw")
     depends_on("scalapack", when="+scalapack")
     depends_on("libvdwxc", when="+libvdwxc")
+    depends_on("cuda", when="+cuda")
+    depends_on("py-cupy +cuda", when="+cuda")
+    depends_on("openmpi +cuda", when="+cuda +mpi", type=("build", "link", "run"))
+    conflicts("cuda_arch=none", when="+cuda", msg="CUDA arch required when building cuda variant.")
+    conflicts("elpa", when="+cuda", msg="CUDA and ELPA have not been tested together.")
     # Fixed elpa version due to compilation/linking errors on older and newer versions.
     # Tested for versions @23.6.1:25.1.0
     depends_on("elpa@2022.11.001", when="+elpa")
@@ -127,6 +151,16 @@ class PyGpaw(PythonPackage):
             openmp_compile_args = ["-fopenmp"]
             openmp_link_args = ["-fopenmp"]
 
+        if "+cuda" in spec:
+            bools += "gpu = True\n"
+            include_dirs.append(spec["cuda"].prefix.include)
+            libs += spec["cuda"].libs
+            libs += ["cudart", "cublas"]
+            gpu_compile_args = ["-O3", "-g"]
+            for f in spec.variants["cuda_arch"].value:
+                gpu_compile_args.append("-gencode")
+                gpu_compile_args.append(f"arch=compute_{f},code=sm_{f}")
+
         lib_dirs = list(libs.directories)
         libs = list(libs.names)
         rpath_str = ":".join(self.rpath)
@@ -147,3 +181,7 @@ class PyGpaw(PythonPackage):
             if "+openmp" in spec:
                 f.write(f"extra_compile_args += {openmp_compile_args}\n")
                 f.write(f"extra_link_args += {openmp_link_args}\n")
+            if "+cuda" in spec:
+                f.write("gpu_target = 'cuda'\n")
+                f.write("gpu_compiler = 'nvcc'\n")
+                f.write(f"gpu_compile_args = {gpu_compile_args}\n")

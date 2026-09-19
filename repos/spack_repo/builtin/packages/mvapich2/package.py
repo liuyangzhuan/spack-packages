@@ -49,7 +49,7 @@ class Mvapich2(MpichEnvironmentModifications, AutotoolsPackage):
 
     provides("mpi")
     provides("mpi@:3.1", when="@2.3:")
-    provides("mpi@:3.0", when="@2.1:")
+    provides("mpi@:3.0", when="@2.1:2.2")
 
     variant("wrapperrpath", default=True, description="Enable wrapper rpath")
     variant("debug", default=False, description="Enable debug info and error messages at run-time")
@@ -137,6 +137,7 @@ class Mvapich2(MpichEnvironmentModifications, AutotoolsPackage):
     depends_on("fortran", type="build")
 
     depends_on("automake@1.15", type="build")  # needed for torque patch
+    depends_on("autoconf", type="build")
     depends_on("findutils", type="build")
     depends_on("bison", type="build")
     depends_on("pkgconfig", type="build")

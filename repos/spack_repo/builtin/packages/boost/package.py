@@ -31,6 +31,7 @@ class Boost(Package):
     license("BSL-1.0")
 
     version("develop", branch="develop", submodules=True)
+    version("1.90.0", sha256="49551aff3b22cbc5c5a9ed3dbc92f0e23ea50a0f7325b0d198b705e8ee3fc305")
     version("1.89.0", sha256="85a33fa22621b4f314f8e85e1a5e2a9363d22e4f4992925d4bb3bc631b5a0c7a")
     version("1.88.0", sha256="46d9d2c06637b219270877c9e16155cbd015b6dc84349af064c088e9b5b12f7b")
     version("1.87.0", sha256="af57be25cb4c4f4b413ed692fe378affb4352ea50fbe294a11ef548f4d527d89")
@@ -140,6 +141,8 @@ class Boost(Package):
         "mpi",
         "mqtt5",
         "nowide",
+        "openmethod",
+        "process",
         "program_options",
         "python",
         "random",
@@ -161,11 +164,26 @@ class Boost(Package):
     # signals library was removed from boost in 1.69
     # https://www.boost.org/releases/1.69.0/#:~:text=Discontinued
     all_libs_opts = {
-        "conversion": {"when": "@1.87.0:"},
-        "charconv": {"when": "@1.85.0:"},
-        "cobalt": {"when": "@1.84.0:"},
+        "openmethod": {"when": "@1.90:"},
+        "process": {"when": "@1.64:"},
+        "mqtt5": {"when": "@1.88:"},
+        "charconv": {"when": "@1.85:"},
+        "cobalt": {"when": "@1.84:"},
+        "url": {"when": "@1.81:"},
+        "json": {"when": "@1.75:"},
+        "nowide": {"when": "@1.73:"},
         "signals": {"when": "@:1.68"},
-        "signals2": {"when": "@1.4:"},
+        "contract": {"when": "@1.67:"},
+        "stacktrace": {"when": "@1.65:"},
+        "fiber": {"when": "@1.62:"},
+        "type_erasure": {"when": "@1.60:"},
+        "atomic": {"when": "@1.53:"},
+        "coroutine": {"when": "@1.54:1.66"},
+        "context": {"when": "@1.51:"},
+        "container": {"when": "@1.56:"},
+        "locale": {"when": "@1.48:"},
+        "chrono": {"when": "@1.47:"},
+        "signals2": {"when": "@1.87:"},
     }
 
     for lib in all_libs:
@@ -280,12 +298,10 @@ class Boost(Package):
     conflicts("context-impl=ucontext", when="@:1.65.0")
     conflicts("context-impl=winfib", when="@:1.65.0")
 
-    # Coroutine, Context, Fiber, etc., are not straightforward.
-    conflicts("+context", when="@:1.50")  # Context since 1.51.0.
+    # Coroutine, Context, Fiber, etc., are not straightforward. The version ranges in which
+    # these libraries exist are encoded in the "when" clauses of the variants above.
     conflicts("cxxstd=98", when="+context")  # Context requires >=C++11.
-    conflicts("+coroutine", when="@:1.52")  # Context since 1.53.0.
     conflicts("~context", when="+coroutine")  # Coroutine requires Context.
-    conflicts("+fiber", when="@:1.61")  # Fiber since 1.62.0.
     conflicts("cxxstd=98", when="+fiber")  # Fiber requires >=C++11.
     conflicts("~context", when="+fiber")  # Fiber requires Context.
 
@@ -305,9 +321,6 @@ class Boost(Package):
     # boost-mpi depends on boost-python since 1.87.0
     conflicts("~python", when="+mpi @1.87.0:")
 
-    # Container's Extended Allocators were not added until 1.56.0
-    conflicts("+container", when="@:1.55")
-
     # Boost.System till 1.76 (included) was relying on mutex, which was not
     # detected correctly on Darwin platform when using GCC
     #
@@ -319,6 +332,9 @@ class Boost(Package):
     # Boost 1.80 does not build with the Intel oneapi compiler
     # (https://github.com/spack/spack/pull/32879#issuecomment-1265933265)
     conflicts("%oneapi", when="@1.80")
+
+    # Boost did not support the oneapi compilers prior to 1.76
+    conflicts("%oneapi@2023:", when="@:1.75")
 
     # Boost 1.85.0 stacktrace added a hard compilation error that has to
     # explicitly be suppressed on some platforms:
@@ -466,6 +482,13 @@ class Boost(Package):
     # https://www.intel.com/content/www/us/en/developer/articles/technical/building-boost-with-oneapi.html
     patch("intel-oneapi-linux-jam.patch", when="@1.76: %oneapi")
 
+    # https://github.com/spack/spack/issues/44003
+    patch(
+        "oneapi_pthread.patch",
+        sha256="7845717c5d916fabc0e62eb6e1f5ad8f13baaf4a4b71b99b19847703386064c4",
+        when="@1.76: %oneapi@2022:",
+    )
+
     # https://github.com/boostorg/phoenix/issues/111
     patch("boost_phoenix_1.81.0.patch", level=2, when="@1.81.0:1.82.0")
 
@@ -518,6 +541,7 @@ class Boost(Package):
             "%intel": "intel",
             "%oneapi": "intel",
             "%clang": "clang",
+            "%apple-clang": "clang",
             "%arm": "clang",
             "%xl": "xlcpp",
             "%xl_r": "xlcpp",
@@ -669,7 +693,7 @@ class Boost(Package):
             # Any lib that is in self.all_libs AND in the variants dictionary
             # AND is set to False should be added to options in a --without flag
             for lib in self.all_libs:
-                if lib not in self.spec.variants.dict or self.spec.satisfies(f"+{lib}"):
+                if lib not in self.spec.variants or self.spec.satisfies(f"+{lib}"):
                     continue
                 options.append(f"--without-{lib}")
 
@@ -721,7 +745,7 @@ class Boost(Package):
             cxxflags.append("-DBOOST_STACKTRACE_LIBCXX_RUNTIME_MAY_CAUSE_MEMORY_LEAK")
 
         if cxxflags:
-            options.append('cxxflags="{0}"'.format(" ".join(cxxflags)))
+            options.append("cxxflags={0}".format(" ".join(cxxflags)))
 
         # Visibility was added in 1.69.0.
         if spec.satisfies("@1.69.0:"):

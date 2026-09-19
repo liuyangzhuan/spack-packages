@@ -46,13 +46,20 @@ class Kallisto(CMakePackage):
     patch("limits.patch", when="@:0.46")
     patch("htslib_configure.patch", when="@0.44.0:0.48.0^autoconf@2.70:")
 
+    # https://github.com/pachterlab/kallisto/pull/506
+    patch(
+        "https://github.com/pachterlab/kallisto/commit/a5caefb.patch?full_index=1",
+        sha256="a7002ce51d4dfeab8bce3e1d696ad034328b38e6d794de0c1400d07fb77e018a",
+        when="@0.50.1:",
+    )
+
     @run_before("cmake")
     def autoreconf(self):
         # Versions of autoconf greater than 2.69 need config.guess and
         # config.sub in the tree.
         if self.spec.satisfies("@0.44.0:^autoconf@2.70:"):
             with working_dir(join_path(self.stage.source_path, "ext", "htslib")):
-                autoreconf = which("autoreconf")
+                autoreconf = which("autoreconf", required=True)
                 autoreconf("--install")
 
     # Including '-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON' in the cmake args
