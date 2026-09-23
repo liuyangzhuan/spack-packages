@@ -139,7 +139,7 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
             append_define("CMAKE_DISABLE_FIND_PACKAGE_OpenMP", True)
 
         append_from_variant("TPL_ENABLE_MAGMALIB", "magma")
-        if "+magma" in spec:
+        if spec.satisfies("+magma"):
             append_define("TPL_MAGMA_INCLUDE_DIRS", spec["magma"].prefix.include)
             append_define("TPL_MAGMA_LIBRARIES", spec["magma"].libs.ld_flags)
 
