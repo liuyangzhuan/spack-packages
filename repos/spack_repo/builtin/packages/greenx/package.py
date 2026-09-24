@@ -35,6 +35,7 @@ class Greenx(CMakePackage):
     variant("lbasis", default=False, description="Enable localized basis component")
     variant("paw", default=False, description="Enable PAW component")
 
+    depends_on("c", type="build")
     depends_on("cxx", type="build")
     depends_on("fortran", type="build")
 
@@ -49,6 +50,12 @@ class Greenx(CMakePackage):
     patch(
         "https://github.com/nomad-coe/greenX/commit/96c4b61656c13b5aceb2906ad5efb93a745dc6ae.patch?full_index=1",
         sha256="6d591e223be462137a1563cfcf99ab721c896a79eb139baf32c49995d2a2be7c",
+        when="@:2.3",
+    )
+
+    patch(
+        "cmake.patch",
+        sha256="c0810c8f26926f417c62cde9306ed4e869a6e0aa085e4226f853d694a042a25d",
         when="@:2.3",
     )
 

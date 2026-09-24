@@ -161,7 +161,7 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
             append_define("CMAKE_DISABLE_FIND_PACKAGE_OpenMP", True)
 
         append_from_variant("TPL_ENABLE_MAGMALIB", "magma")
-        if "+magma" in spec:
+        if spec.satisfies("+magma"):
             append_define("TPL_MAGMA_INCLUDE_DIRS", spec["magma"].prefix.include)
             append_define("TPL_MAGMA_LIBRARIES", spec["magma"].libs.ld_flags)
 
@@ -170,7 +170,8 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
             cuda_arch = spec.variants["cuda_arch"].value
             if cuda_arch[0] != "none":
                 append_define("CMAKE_CUDA_ARCHITECTURES", cuda_arch[0])
-            append_from_variant("CMAKE_CUDA_STANDARD", "cxxstd")
+            if spec.satisfies("^cuda@13:"):
+                append_define("CMAKE_CXX_STANDARD", "17")
 
         if "+rocm" in spec and (spec.satisfies("@amd") or spec.satisfies("@8:")):
             append_define("TPL_ENABLE_HIPLIB", True)
@@ -228,5 +229,5 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
             # Smoke test input parameters: -r 2 -c 2 g20.rua
             test_args = ["-n", "4", superludriver, "-r", "2", "-c", "2", "g20.rua"]
             # Find the correct mpirun command
-            mpiexe_f = which("srun", "mpirun", "mpiexec")
+            mpiexe_f = which("srun", "mpirun", "mpiexec", required=True)
             mpiexe_f(*test_args)

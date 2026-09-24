@@ -40,6 +40,9 @@ class Hugo(GoPackage):
     version("0.107.0", sha256="31d959a3c1633087d338147782d03bdef65323b67ff3efcec7b40241413e270a")
     version("0.106.0", sha256="9219434beb51466487b9f8518edcbc671027c1998e5a5820d76d517e1dfbd96a")
 
+    depends_on("c", type="build", when="+extended")
+    depends_on("cxx", type="build", when="+extended")
+
     depends_on("go@1.24:", type="build", when="@0.149:")
     depends_on("go@1.23:", type="build", when="@0.144:")
     depends_on("go@1.22.6:", type="build", when="@0.133:")
@@ -60,7 +63,7 @@ class Hugo(GoPackage):
 
     @property
     def build_args(self):
-        args = super().build_args
+        args = []
         if self.spec.satisfies("+extended"):
             args.extend(["--tags", "extended"])
 

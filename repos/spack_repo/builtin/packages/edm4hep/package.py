@@ -22,6 +22,9 @@ class Edm4hep(CMakePackage):
     license("Apache-2.0")
 
     version("main", branch="main")
+    version("1.1.1", sha256="14165219c74c48549cdd1ad7ea5e3cf0e7bed86688a1e037fde39a51d2e7edd0")
+    version("1.1", sha256="a45c849e69ae23640086315547a3bf480aaab954168043c82ccf9a7d372bffdd")
+    version("1.0", sha256="7bb76479883997ba39357b0db65d96d5f1201bc8a79b47866db8b44f76a231be")
     version("0.99.4", sha256="34a76e74a3199b96d8108425fdf894cafa7e4a71483d4893537c3026b4e666d6")
     version("0.99.3", sha256="c89e90085d83c5565b2609a81532af0d631d423fdf6d03396f666ea3a8472429")
     version("0.99.2", sha256="b3e7abb61fd969e4c9aef55dd6839a2186bf0b0d3801174fe6e0b9df8e0ebace")
@@ -62,6 +65,8 @@ class Edm4hep(CMakePackage):
     depends_on("podio@0.15:", when="@:0.10.5")
     depends_on("podio@:1.1", when="@:0.99.0")
     depends_on("podio@1.3:", when="@0.99.2:")
+    depends_on("podio@:1.6", when="@:0.99.4")
+    depends_on("podio@1.7:", when="@1.0:")
     for _std in _cxxstd_values:
         for _v in _std:
             depends_on(f"podio cxxstd={_v.value}", when=f"cxxstd={_v.value}")
@@ -77,6 +82,11 @@ class Edm4hep(CMakePackage):
     extends("python", when="@0.10.6:")
 
     conflicts("%clang@:16", when="@0.99.1:", msg="Incomplete consteval support in clang")
+    conflicts(
+        "^python +freethreading",
+        when="@:0.99.4",
+        msg="python free-threading requires edm4hep@0.99.5:",
+    )
 
     # Fix missing nljson import
     # NOTE that downstream packages (dd4hep) may fail for 0.99 and before
@@ -84,6 +94,12 @@ class Edm4hep(CMakePackage):
         "https://github.com/key4hep/EDM4hep/commit/18799dacfdaf5d746134c957de48607aa2665d75.patch?full_index=1",
         when="@0.99.1",
         sha256="374f0b7635c632e5a57d23ad163efab7370ab471c62e2713a41aa26e33d8f221",
+    )
+
+    patch(
+        "https://github.com/key4hep/EDM4hep/commit/f87de123bb1a56dfab7cdcb7f3cfb9dd51fc9313.patch?full_index=1",
+        when="@=1.1 %podio+arrow",
+        sha256="d4412d1340481a741893dd8684400eb3662c76f63d47cc940e38091c0ae9e766",
     )
 
     def cmake_args(self):
@@ -113,6 +129,9 @@ class Edm4hep(CMakePackage):
         :type param: str
         """
         base_url = self.url.rsplit("/", 1)[0]
+
+        if version.isdevelop():
+            return f"{base_url}/refs/heads/{version}.tar.gz"
 
         if len(version) == 1:
             major = version[0]

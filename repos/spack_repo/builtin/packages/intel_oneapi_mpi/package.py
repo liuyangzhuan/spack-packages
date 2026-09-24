@@ -26,6 +26,19 @@ class IntelOneapiMpi(IntelOneApiLibraryPackage):
     homepage = "https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/mpi-library.html"
 
     version(
+        "2021.18.0",
+        url="https://registrationcenter-download.intel.com/akdlm/IRC_NAS/f62e2cfe-82a9-480f-b6ca-51ad7cc799fc/intel-mpi-2021.18.0.749_offline.sh",
+        sha256="a2afb95b3b9f85b9ddd32171e940a7b7cc02d7bbd6dca9d77a7bd405f3d62b73",
+        expand=False,
+    )
+
+    version(
+        "2021.17.2",
+        url="https://registrationcenter-download.intel.com/akdlm/IRC_NAS/86923909-82e5-4c1a-9499-b4263e800a33/intel-mpi-2021.17.2.94_offline.sh",
+        sha256="4861c55fdfde1f08a293a7cfb715aaab498cb8fc700d5db8f0b67660e5948350",
+        expand=False,
+    )
+    version(
         "2021.17.1",
         url="https://registrationcenter-download.intel.com/akdlm/IRC_NAS/7ba1f01b-8910-4f49-ad09-27751feb8009/intel-mpi-2021.17.1.13_offline.sh",
         sha256="f6ce783a693ef508045a5c2ae425350f1c28f6cb4ad829d6b4a7ca65eb104eb3",
@@ -197,6 +210,7 @@ class IntelOneapiMpi(IntelOneApiLibraryPackage):
         "external-libfabric", default=False, description="Enable external libfabric dependency"
     )
     depends_on("libfabric", when="+external-libfabric", type=("link", "run"))
+    conflicts("libfabric", when="~external-libfabric")
 
     provides("mpi@:3.1")
     conflicts("+generic-names +classic-names")
@@ -269,7 +283,7 @@ class IntelOneapiMpi(IntelOneApiLibraryPackage):
     def wrapper_paths(self):
         return [self.component_prefix.bin.join(name) for name in self.wrapper_names()]
 
-    def setup_dependent_package(self, module, dep_spec):
+    def setup_dependent_package(self, module, dependent_spec):
         wrappers = self.wrapper_paths()
         self.spec.mpicc = wrappers[0]
         self.spec.mpicxx = wrappers[1]
