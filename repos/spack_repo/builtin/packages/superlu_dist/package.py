@@ -64,6 +64,24 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
     variant("shared", default=True, description="Build shared libraries")
     variant("parmetis", default=True, description="Enable ParMETIS library")
     variant("magma", default=False, description="Enable MAGMA library")
+    # Note: the "amd" branch version sorts below all numeric versions, so
+    # "@5:9.1" excludes it while "@:9.1" would not.
+    variant(
+        "cxxstd",
+        default="11",
+        description="C++ (and CUDA) language standard",
+        values=("11", "14", "17", "20"),
+        multi=False,
+        when="@5:9.1",
+    )
+    variant(
+        "cxxstd",
+        default="17",
+        description="C++ (and CUDA) language standard",
+        values=("11", "14", "17", "20"),
+        multi=False,
+        when="@9.2:,amd",
+    )
 
     depends_on("c", type="build")  # generated
     depends_on("cxx", type="build")  # generated
@@ -91,6 +109,9 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
     conflicts("^cuda@11.5.0:", when="@7.1.0:7.1 +cuda")
     # https://github.com/xiaoyeli/superlu_dist/pull/193
     conflicts("^cuda@13:", when="@:9.1 +cuda")
+    # CUDA 13 (CCCL) requires C++17 or newer
+    conflicts("cxxstd=11", when="+cuda ^cuda@13:")
+    conflicts("cxxstd=14", when="+cuda ^cuda@13:")
 
     patch("xl-611.patch", when="@:6.1.1 %xl")
     patch("xl-611.patch", when="@:6.1.1 %xl_r")
@@ -120,6 +141,7 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
         append_define("TPL_LAPACK_LIBRARIES", spec["lapack"].libs.ld_flags)
         append_define("TPL_ENABLE_LAPACKLIB", True)
         append_define("USE_XSDK_DEFAULTS", True)
+        append_from_variant("CMAKE_CXX_STANDARD", "cxxstd")
 
         append_from_variant("TPL_ENABLE_PARMETISLIB", "parmetis")
         if "+parmetis" in spec:
@@ -148,8 +170,7 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
             cuda_arch = spec.variants["cuda_arch"].value
             if cuda_arch[0] != "none":
                 append_define("CMAKE_CUDA_ARCHITECTURES", cuda_arch[0])
-            if spec.satisfies("^cuda@13:"):
-                append_define("CMAKE_CXX_STANDARD", "17")
+            append_from_variant("CMAKE_CUDA_STANDARD", "cxxstd")
 
         if "+rocm" in spec and (spec.satisfies("@amd") or spec.satisfies("@8:")):
             append_define("TPL_ENABLE_HIPLIB", True)
@@ -170,8 +191,6 @@ class SuperluDist(CMakePackage, CudaPackage, ROCmPackage):
 
     def flag_handler(self, name, flags):
         flags = list(flags)
-        if name == "cxxflags":
-            flags.append(self.compiler.cxx11_flag)
         if (
             name == "cflags"
             and (self.spec.satisfies("%xl") or self.spec.satisfies("%xl_r"))
